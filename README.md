@@ -31,7 +31,7 @@ set -a; . ./.env; set +a
 venv/bin/python bot.py
 ```
 
-`GUILD_ID` makes commands sync instantly to that one server. Leave it unset for a slow global sync (~1 hour).
+`GUILD_IDS` (comma-separated) makes commands sync instantly to those servers. Leave it unset for a slow global sync (~1 hour). The legacy name `GUILD_ID` is also accepted for a single server.
 
 ## Hetzner deployment
 

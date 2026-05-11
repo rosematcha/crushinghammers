@@ -28,11 +28,10 @@ log = logging.getLogger("crushinghammer")
 def db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS hammers ("
-        "  user_id   INTEGER PRIMARY KEY,"
-        "  remaining INTEGER NOT NULL DEFAULT ?"
-        ")",
-        (DAILY_HAMMERS,),
+        f"CREATE TABLE IF NOT EXISTS hammers ("
+        f"  user_id   INTEGER PRIMARY KEY,"
+        f"  remaining INTEGER NOT NULL DEFAULT {DAILY_HAMMERS}"
+        f")"
     )
     conn.commit()
     return conn
@@ -66,21 +65,24 @@ def reset_all(conn: sqlite3.Connection) -> None:
 
 
 class CrushingHammerBot(discord.Client):
-    def __init__(self, guild_id: int | None) -> None:
+    def __init__(self, guild_ids: list[int]) -> None:
         intents = discord.Intents.default()
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
-        self.guild_id = guild_id
+        self.guild_ids = guild_ids
         self.db = db_connect()
 
     async def setup_hook(self) -> None:
         register_commands(self)
-        if self.guild_id:
-            guild = discord.Object(id=self.guild_id)
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
+        if self.guild_ids:
+            for gid in self.guild_ids:
+                guild = discord.Object(id=gid)
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                log.info("Synced commands to guild %s", gid)
         else:
             await self.tree.sync()
+            log.info("Synced commands globally")
         daily_reset.start(self)
 
     async def on_ready(self) -> None:
@@ -189,9 +191,9 @@ def main() -> None:
     token = os.environ.get("DISCORD_TOKEN")
     if not token:
         raise SystemExit("DISCORD_TOKEN not set")
-    guild_id_raw = os.environ.get("GUILD_ID")
-    guild_id = int(guild_id_raw) if guild_id_raw else None
-    bot = CrushingHammerBot(guild_id=guild_id)
+    guild_ids_raw = os.environ.get("GUILD_IDS") or os.environ.get("GUILD_ID") or ""
+    guild_ids = [int(x.strip()) for x in guild_ids_raw.split(",") if x.strip()]
+    bot = CrushingHammerBot(guild_ids=guild_ids)
     bot.run(token, log_handler=None)
 
 
