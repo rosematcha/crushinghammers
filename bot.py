@@ -72,37 +72,36 @@ def env_truthy(name: str) -> bool:
 
 
 class CrushingHammerBot(discord.Client):
-    def __init__(self, guild_ids: list[int]) -> None:
+    def __init__(self) -> None:
         intents = discord.Intents.default()
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
-        self.guild_ids = guild_ids
         self.db = db_connect()
+        self._cleared_guild_commands = False
         if env_truthy("RESET_ON_START"):
             reset_all(self.db)
             log.info("RESET_ON_START set; cleared all hammer counts")
 
     async def setup_hook(self) -> None:
         register_commands(self)
-        if self.guild_ids:
-            for gid in self.guild_ids:
-                guild = discord.Object(id=gid)
-                self.tree.copy_global_to(guild=guild)
-                try:
-                    await self.tree.sync(guild=guild)
-                    log.info("Synced commands to guild %s", gid)
-                except discord.Forbidden:
-                    log.warning(
-                        "Can't sync to guild %s — bot isn't in that server. Skipping.",
-                        gid,
-                    )
-        else:
-            await self.tree.sync()
-            log.info("Synced commands globally")
+        await self.tree.sync()
+        log.info("Synced commands globally")
         daily_reset.start(self)
 
     async def on_ready(self) -> None:
         log.info("Logged in as %s (id=%s)", self.user, self.user.id if self.user else "?")
+        if env_truthy("CLEAR_GUILD_COMMANDS") and not self._cleared_guild_commands:
+            self._cleared_guild_commands = True
+            for guild in self.guilds:
+                self.tree.clear_commands(guild=guild)
+                try:
+                    await self.tree.sync(guild=guild)
+                    log.info("Cleared per-guild commands from guild %s", guild.id)
+                except discord.Forbidden:
+                    log.warning(
+                        "Can't clear per-guild commands for guild %s — missing permission",
+                        guild.id,
+                    )
 
 
 @tasks.loop(time=time(hour=0, minute=0, tzinfo=CHICAGO))
@@ -209,9 +208,7 @@ def main() -> None:
     token = os.environ.get("DISCORD_TOKEN")
     if not token:
         raise SystemExit("DISCORD_TOKEN not set")
-    guild_ids_raw = os.environ.get("GUILD_IDS") or os.environ.get("GUILD_ID") or ""
-    guild_ids = [int(x.strip()) for x in guild_ids_raw.split(",") if x.strip()]
-    bot = CrushingHammerBot(guild_ids=guild_ids)
+    bot = CrushingHammerBot()
     bot.run(token, log_handler=None)
 
 

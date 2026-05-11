@@ -26,12 +26,12 @@ No privileged intents are required.
 ```sh
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
-cp .env.example .env   # fill in DISCORD_TOKEN and GUILD_ID
+cp .env.example .env   # fill in DISCORD_TOKEN
 set -a; . ./.env; set +a
 venv/bin/python bot.py
 ```
 
-`GUILD_IDS` (comma-separated) makes commands sync instantly to those servers. Leave it unset for a slow global sync (~1 hour). The legacy name `GUILD_ID` is also accepted for a single server.
+Commands sync globally, so the bot works in any server it's invited to. After a deploy that changes commands, Discord can take up to ~1 hour to propagate; servers that join the bot afterward see the existing commands immediately.
 
 Hammer counts are per-server, so a user's count in one server doesn't bleed into another. The midnight Chicago reset clears every server at once.
 
@@ -51,7 +51,6 @@ sudo -u crushinghammer /opt/crushinghammer/venv/bin/pip install -r /opt/crushing
 # secrets
 install -m 600 /dev/stdin /etc/crushinghammer.env <<'EOF'
 DISCORD_TOKEN=...
-GUILD_ID=...
 EOF
 
 # service
