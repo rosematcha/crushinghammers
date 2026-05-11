@@ -10,6 +10,17 @@ A tiny Discord bot themed on the Pokémon TCG card *Crushing Hammer*. Each membe
 
 The bot replies publicly only with `**Heads.**` or `**Tails.**`. Everything else is ephemeral.
 
+## Server settings
+
+Anyone with the **Manage Server** permission can tune how hammers behave in their server via `/hammersettings`:
+
+- **`/hammersettings show`** — view current settings.
+- **`/hammersettings dailyhammers <count>`** — daily hammer allotment per member (1–50, default 4). Takes effect at the next midnight CT reset.
+- **`/hammersettings doublejeopardy <off|per-user|per-server>`** — controls whether the same message can be hammered more than once in a day. `off` (default) places no limit; `per-user` stops one member from hammering the same message twice; `per-server` stops anyone in the server from hammering an already-attempted message. Resets at midnight CT alongside hammer counts.
+- **`/hammersettings protect <channel>`** — protects a channel (rules, announcements, etc.) from hammers. Threads inside a protected channel are protected too. Use `/hammersettings unprotect <channel>` to remove and `/hammersettings protectedchannels` to list.
+
+Settings are per server and persist in `hammers.db`.
+
 ## Discord app setup
 
 1. Create an app at https://discord.com/developers/applications.
@@ -20,6 +31,8 @@ The bot replies publicly only with `**Heads.**` or `**Tails.**`. Everything else
 4. Open the generated URL and invite the bot to your server.
 
 No privileged intents are required.
+
+Don't add Administrator. `Manage Messages` is sufficient to delete messages, and routing through Administrator in Discord's UI exposes a per-command permission editor that's easy to misconfigure and lock regular users out of `/crushinghammer`. If that has already happened, open Server Settings → Integrations → Crushing Hammer and clear any per-command role/member overrides.
 
 ## Local run
 
@@ -62,4 +75,4 @@ journalctl -u crushinghammer -f
 
 ## Data
 
-State lives in `hammers.db` (SQLite, one table). It's safe to delete — every user gets reset to 4 on next interaction.
+State lives in `hammers.db` (SQLite). It's safe to delete — every user gets reset to their server's daily count on next interaction, and per-server settings (daily count, double-jeopardy mode, protected channels) revert to defaults.
