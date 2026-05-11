@@ -4,8 +4,8 @@ A tiny Discord bot themed on the Pokémon TCG card *Crushing Hammer*. Each membe
 
 ## Commands
 
-- **Right-click a message → Apps → Crushing Hammer** — primary use.
-- **`/crushinghammer message_link:<link>`** — same thing via slash command; pass a message link (right-click message → Copy Message Link).
+- **`/crushinghammer`** — targets the message directly above your slash command. Quickest path.
+- **Right-click a message → Apps → Crushing Hammer** — pick an older message to hammer.
 - **`/checkhammers`** — ephemeral; tells you how many hammers you have left.
 
 The bot replies publicly only with `**Heads.**` or `**Tails.**`. Everything else is ephemeral.

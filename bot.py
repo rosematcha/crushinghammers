@@ -1,7 +1,6 @@
 import logging
 import os
 import random
-import re
 import sqlite3
 from datetime import time
 from pathlib import Path
@@ -14,9 +13,6 @@ from discord.ext import tasks
 DAILY_HAMMERS = 4
 CHICAGO = ZoneInfo("America/Chicago")
 DB_PATH = Path(os.environ.get("HAMMERS_DB", Path(__file__).parent / "hammers.db"))
-MESSAGE_LINK_RE = re.compile(
-    r"https?://(?:ptb\.|canary\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)"
-)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -151,32 +147,23 @@ def register_commands(bot: CrushingHammerBot) -> None:
 
     @bot.tree.command(
         name="crushinghammer",
-        description="Flip a coin; heads deletes the linked message.",
+        description="Flip a coin; heads deletes the message above.",
     )
-    @app_commands.describe(message_link="Right-click a message → Copy Message Link")
-    async def crushing_hammer_slash(
-        interaction: discord.Interaction, message_link: str
-    ) -> None:
-        match = MESSAGE_LINK_RE.match(message_link.strip())
-        if not match:
-            await interaction.response.send_message(
-                "That doesn't look like a message link. Right-click a message → "
-                "Copy Message Link, or use the right-click → Apps → Crushing Hammer menu.",
-                ephemeral=True,
-            )
-            return
-        _guild_id, channel_id, message_id = (int(x) for x in match.groups())
-        channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+    async def crushing_hammer_slash(interaction: discord.Interaction) -> None:
+        channel = interaction.channel
         if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)):
             await interaction.response.send_message(
-                "I can't see that channel.", ephemeral=True
+                "I can't read this channel's history.", ephemeral=True
             )
             return
-        try:
-            target = await channel.fetch_message(message_id)
-        except (discord.NotFound, discord.Forbidden):
+        target: discord.Message | None = None
+        async for msg in channel.history(limit=5):
+            if bot.user is None or msg.author.id != bot.user.id:
+                target = msg
+                break
+        if target is None:
             await interaction.response.send_message(
-                "I can't find that message.", ephemeral=True
+                "Nothing to hammer above.", ephemeral=True
             )
             return
         await use_hammer(bot, interaction, target)
