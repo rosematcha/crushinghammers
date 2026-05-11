@@ -23,33 +23,40 @@ log = logging.getLogger("crushinghammer")
 
 def db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(hammers)").fetchall()}
+    if cols and "guild_id" not in cols:
+        log.info("Migrating: dropping legacy hammers table without guild_id")
+        conn.execute("DROP TABLE hammers")
     conn.execute(
         f"CREATE TABLE IF NOT EXISTS hammers ("
-        f"  user_id   INTEGER PRIMARY KEY,"
-        f"  remaining INTEGER NOT NULL DEFAULT {DAILY_HAMMERS}"
+        f"  guild_id  INTEGER NOT NULL,"
+        f"  user_id   INTEGER NOT NULL,"
+        f"  remaining INTEGER NOT NULL DEFAULT {DAILY_HAMMERS},"
+        f"  PRIMARY KEY (guild_id, user_id)"
         f")"
     )
     conn.commit()
     return conn
 
 
-def get_remaining(conn: sqlite3.Connection, user_id: int) -> int:
+def get_remaining(conn: sqlite3.Connection, guild_id: int, user_id: int) -> int:
     conn.execute(
-        "INSERT OR IGNORE INTO hammers (user_id, remaining) VALUES (?, ?)",
-        (user_id, DAILY_HAMMERS),
+        "INSERT OR IGNORE INTO hammers (guild_id, user_id, remaining) VALUES (?, ?, ?)",
+        (guild_id, user_id, DAILY_HAMMERS),
     )
     row = conn.execute(
-        "SELECT remaining FROM hammers WHERE user_id = ?", (user_id,)
+        "SELECT remaining FROM hammers WHERE guild_id = ? AND user_id = ?",
+        (guild_id, user_id),
     ).fetchone()
     conn.commit()
     return row[0]
 
 
-def spend_hammer(conn: sqlite3.Connection, user_id: int) -> bool:
+def spend_hammer(conn: sqlite3.Connection, guild_id: int, user_id: int) -> bool:
     cur = conn.execute(
         "UPDATE hammers SET remaining = remaining - 1 "
-        "WHERE user_id = ? AND remaining > 0",
-        (user_id,),
+        "WHERE guild_id = ? AND user_id = ? AND remaining > 0",
+        (guild_id, user_id),
     )
     conn.commit()
     return cur.rowcount > 0
@@ -60,6 +67,10 @@ def reset_all(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 class CrushingHammerBot(discord.Client):
     def __init__(self, guild_ids: list[int]) -> None:
         intents = discord.Intents.default()
@@ -67,6 +78,9 @@ class CrushingHammerBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
         self.guild_ids = guild_ids
         self.db = db_connect()
+        if env_truthy("RESET_ON_START"):
+            reset_all(self.db)
+            log.info("RESET_ON_START set; cleared all hammer counts")
 
     async def setup_hook(self) -> None:
         register_commands(self)
@@ -102,20 +116,26 @@ async def use_hammer(
     interaction: discord.Interaction,
     target: discord.Message,
 ) -> None:
+    if interaction.guild_id is None:
+        await interaction.response.send_message(
+            "Crushing Hammer only works in servers.", ephemeral=True
+        )
+        return
     if bot.user is not None and target.author.id == bot.user.id:
         await interaction.response.send_message(
             "Can't hammer the hammer.", ephemeral=True
         )
         return
 
-    remaining = get_remaining(bot.db, interaction.user.id)
+    guild_id = interaction.guild_id
+    remaining = get_remaining(bot.db, guild_id, interaction.user.id)
     if remaining <= 0:
         await interaction.response.send_message(
             "Out of hammers. Resets at midnight CT.", ephemeral=True
         )
         return
 
-    if not spend_hammer(bot.db, interaction.user.id):
+    if not spend_hammer(bot.db, guild_id, interaction.user.id):
         await interaction.response.send_message(
             "Out of hammers. Resets at midnight CT.", ephemeral=True
         )
@@ -173,7 +193,12 @@ def register_commands(bot: CrushingHammerBot) -> None:
         description="Check how many hammers you have left today.",
     )
     async def check_hammers(interaction: discord.Interaction) -> None:
-        remaining = get_remaining(bot.db, interaction.user.id)
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                "Crushing Hammer only works in servers.", ephemeral=True
+            )
+            return
+        remaining = get_remaining(bot.db, interaction.guild_id, interaction.user.id)
         await interaction.response.send_message(
             f"You have {remaining} hammer{'s' if remaining != 1 else ''}.",
             ephemeral=True,

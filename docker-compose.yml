@@ -5,6 +5,7 @@ services:
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       GUILD_IDS: ${GUILD_IDS}
+      RESET_ON_START: ${RESET_ON_START:-}
       HAMMERS_DB: /data/hammers.db
     volumes:
       - hammers-data:/data

@@ -33,6 +33,10 @@ venv/bin/python bot.py
 
 `GUILD_IDS` (comma-separated) makes commands sync instantly to those servers. Leave it unset for a slow global sync (~1 hour). The legacy name `GUILD_ID` is also accepted for a single server.
 
+Hammer counts are per-server, so a user's count in one server doesn't bleed into another. The midnight Chicago reset clears every server at once.
+
+Set `RESET_ON_START=1` and redeploy to wipe everyone's count back to 4 immediately. Unset it again afterward, otherwise every restart will wipe counts.
+
 ## Hetzner deployment
 
 ```sh
