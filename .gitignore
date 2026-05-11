@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+venv/
+.env
+hammers.db
+hammers.db-journal

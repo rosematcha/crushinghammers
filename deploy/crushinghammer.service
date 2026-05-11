@@ -1,0 +1,22 @@
+[Unit]
+Description=Crushing Hammer Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/crushinghammer.env
+WorkingDirectory=/opt/crushinghammer
+ExecStart=/opt/crushinghammer/venv/bin/python bot.py
+Restart=on-failure
+RestartSec=5
+User=crushinghammer
+Group=crushinghammer
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/crushinghammer
+
+[Install]
+WantedBy=multi-user.target
