@@ -78,8 +78,14 @@ class CrushingHammerBot(discord.Client):
             for gid in self.guild_ids:
                 guild = discord.Object(id=gid)
                 self.tree.copy_global_to(guild=guild)
-                await self.tree.sync(guild=guild)
-                log.info("Synced commands to guild %s", gid)
+                try:
+                    await self.tree.sync(guild=guild)
+                    log.info("Synced commands to guild %s", gid)
+                except discord.Forbidden:
+                    log.warning(
+                        "Can't sync to guild %s — bot isn't in that server. Skipping.",
+                        gid,
+                    )
         else:
             await self.tree.sync()
             log.info("Synced commands globally")
